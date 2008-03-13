@@ -75,6 +75,18 @@ EOF
     rm -f $dummy.c $dummy
 fi
 
+# Patch Solaris
+if [ "$OS" = "solaris" ]; then
+    # Adds the address space to the cpu if its 64bit
+	if [ `isainfo -b` = "64" ]; then
+		if [ "$CPU" = "i386" ]; then
+			CPU=x86_64
+		else	# will probably be sparc in this case
+			CPU="$CPU"_64
+		fi
+	fi
+fi
+
 # Patch Windows
 if [ "$OS" = "cygwin" ]; then
     OS="windows"
