@@ -71,7 +71,7 @@ def words_from_text(text):
             return False
 
         # check for code in comments
-        for c in "<>{}[]():._0123456789":
+        for c in "<>{}[]():._0123456789\&*":
             if c in w:
                 return False
 
@@ -164,9 +164,17 @@ def extract_c_comments(filepath):
         "BEGIN GPL LICENSE BLOCK",
         )
 
+    # http://doc.qt.nokia.com/qtcreator-2.4/creator-task-lists.html#task-list-file-format
+    # file\tline\ttype\tdescription
+    # ... > foobar.tasks
+    PRINT_QTC_TASKFORMAT = True
+
+    # reverse these to find blocks we won't parse
+    PRINT_NON_ALIGNED = False
+    PRINT_SPELLING = True
 
     def strip_doxy_comments(block_split):
-        
+
         for i, l in enumerate(block_split):
             for directive in STRIP_DOXY_DIRECTIVES:
                 if directive in l:
@@ -177,7 +185,7 @@ def extract_c_comments(filepath):
             block_split[i] = l
 
     comments = []
-    
+
     while i >= 0:
         i = text.find(BEGIN, i)
         if i != -1:
@@ -189,7 +197,16 @@ def extract_c_comments(filepath):
                     i -= 1
 
                 block = text[i:i_next + len(END)]
-                
+
+                # add whitespace infront of the block (for alignment test)
+                ws = []
+                j = i
+                while j > 0 and text[j - 1] != "\n":
+                    ws .append("\t" if text[j - 1] == "\t" else " ")
+                    j -= 1
+                ws.reverse()
+                block = "".join(ws) + block
+
                 ok = True
 
                 if not (SINGLE_LINE or ("\n" in block)):
@@ -210,22 +227,27 @@ def extract_c_comments(filepath):
                     is_aligned = len(align_vals) == 1
 
                     if is_aligned:
-                        
-                        if STRIP_DOXY:
-                            strip_doxy_comments(block_split)
-                        
-                        align = align_vals[0] + 1
-                        block = "\n".join([l[align:] for l in block_split])[:-len(END)]
+                        if PRINT_SPELLING:
+                            if STRIP_DOXY:
+                                strip_doxy_comments(block_split)
 
-                        # now strip block and get text
-                        # print(block)
+                            align = align_vals[0] + 1
+                            block = "\n".join([l[align:] for l in block_split])[:-len(END)]
 
-                        # ugh - not nice or fast
-                        slineno = 1 + text.count("\n", 0, i)
+                            # now strip block and get text
+                            # print(block)
 
-                        comments.append(Comment(filepath, block, slineno, 'COMMENT'))
+                            # ugh - not nice or fast
+                            slineno = 1 + text.count("\n", 0, i)
+
+                            comments.append(Comment(filepath, block, slineno, 'COMMENT'))
                     else:
-                        pass
+                        if PRINT_NON_ALIGNED:
+                            lineno = 1 + text.count("\n", 0, i)
+                            if PRINT_QTC_TASKFORMAT:
+                                print("%s\t%d\t%s\t%s" % (filepath, lineno, "comment", align_vals))
+                            else:
+                                print(filepath + ":" + str(lineno) + ":")
 
             i = i_next
         else:
