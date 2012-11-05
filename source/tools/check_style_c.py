@@ -28,6 +28,24 @@ This script runs outside of blender and scans source
 python3.2 source/tools/check_source_c.py source/
 """
 
+import os
+
+from check_style_c_config import IGNORE, IGNORE_DIR, SOURCE_DIR
+IGNORE = tuple([os.path.join(SOURCE_DIR, ig) for ig in IGNORE])
+IGNORE_DIR = tuple([os.path.join(SOURCE_DIR, ig) for ig in IGNORE_DIR])
+
+
+def is_ignore(f):
+    for ig in IGNORE:
+        if f == ig:
+            return True
+    for ig in IGNORE_DIR:
+        if f.startswith(ig):
+            return True
+    return False
+
+print("Scanning:", SOURCE_DIR)
+
 # TODO
 #
 # Add checks for:
@@ -48,6 +66,9 @@ from pygments.token import Token
 import argparse
 
 PRINT_QTC_TASKFORMAT = False
+
+if "USE_QTC_TASK" in os.environ:
+    PRINT_QTC_TASKFORMAT = True
 
 TAB_SIZE = 4
 LIN_SIZE = 120
@@ -194,8 +215,8 @@ def blender_check_kw_if(index_kw_start, index_kw, index_kw_end):
         # check for: if ()
         #            {
         # note: if the if statement is multi-line we allow it
-        if ((tokens[index_kw].line == tokens[index_kw_end].line) and
-            (tokens[index_kw].line == tokens[index_next].line - 1)):
+        if     ((tokens[index_kw].line == tokens[index_kw_end].line) and
+                (tokens[index_kw].line == tokens[index_next].line - 1)):
 
             warning("if body brace on a new line '%s ()\\n{'" % tokens[index_kw].text, index_kw, index_kw_end)
     else:
@@ -219,10 +240,10 @@ def blender_check_kw_else(index_kw):
     #
     # check for this case since this is needed sometimes:
     # else     { a = 1; }
-    if ((tokens[index_kw].line == tokens[i_next].line) and
-        (tokens[index_kw + 1].type == Token.Text) and
-        (len(tokens[index_kw + 1].text) > 1) and
-        (tokens[index_kw + 1].text.isspace())):
+    if     ((tokens[index_kw].line == tokens[i_next].line) and
+            (tokens[index_kw + 1].type == Token.Text) and
+            (len(tokens[index_kw + 1].text) > 1) and
+            (tokens[index_kw + 1].text.isspace())):
 
         # check if the next data after { is on a newline
         i_next_next = tk_advance_ws_newline(i_next, 1)
@@ -238,6 +259,13 @@ def blender_check_kw_else(index_kw):
         if tokens[index_kw].line < tokens[i_next].line:
             warning("else body brace on a new line 'else\\n{'", index_kw, i_next)
 
+    # this check only tests for:
+    # else
+    # if
+    # ... which is never OK
+    if tokens[i_next].type == Token.Keyword and tokens[i_next].text == "if":
+        if tokens[index_kw].line < tokens[i_next].line:
+            warning("else if is split by a new line 'else\\nif'", index_kw, i_next)
 
 def blender_check_comma(index_kw):
     i_next = tk_advance_ws_newline(index_kw, 1)
@@ -256,7 +284,7 @@ def _is_ws_pad(index_start, index_end):
             tokens[index_end + 1].text.isspace())
 
 
-def blender_check_operator(index_start, index_end, op_text):
+def blender_check_operator(index_start, index_end, op_text, is_cpp):
     if op_text == "->":
         # allow compiler to handle
         return
@@ -275,7 +303,8 @@ def blender_check_operator(index_start, index_end, op_text):
 
         elif op_text in {"/", "%", "^", "|", "=", "<", ">"}:
             if not _is_ws_pad(index_start, index_end):
-                warning("no space around operator '%s'" % op_text, index_start, index_end)
+                if not (is_cpp and ("<" in op_text or ">" in op_text)):
+                    warning("no space around operator '%s'" % op_text, index_start, index_end)
         elif op_text == "&":
             pass  # TODO, check if this is a pointer reference or not
         elif op_text == "*":
@@ -291,7 +320,8 @@ def blender_check_operator(index_start, index_end, op_text):
                        ">*", "<*", "-*", "+*", "=*", "/*", "%*", "^*", "!*", "|*",
                        }:
             if not _is_ws_pad(index_start, index_end):
-                warning("no space around operator '%s'" % op_text, index_start, index_end)
+                if not (is_cpp and ("<" in op_text or ">" in op_text)):
+                    warning("no space around operator '%s'" % op_text, index_start, index_end)
 
         elif op_text in {"++", "--"}:
             pass  # TODO, figure out the side we are adding to!
@@ -310,6 +340,8 @@ def blender_check_operator(index_start, index_end, op_text):
             pass  # C++, ignore for now
         elif op_text == ":!*":
             pass  # ignore for now
+        elif op_text == "*>":
+            pass  # ignore for now, C++ <Class *>
         else:
             warning("unhandled operator A '%s'" % op_text, index_start, index_end)
     else:
@@ -318,8 +350,8 @@ def blender_check_operator(index_start, index_end, op_text):
 
     if len(op_text) > 1:
         if op_text[0] == "*" and op_text[-1] == "*":
-            if ((not tokens[index_start - 1].text.isspace()) and
-                (not tokens[index_start - 1].type == Token.Punctuation)):
+            if     ((not tokens[index_start - 1].text.isspace()) and
+                    (not tokens[index_start - 1].type == Token.Punctuation)):
                 warning("no space before pointer operator '%s'" % op_text, index_start, index_end)
             if tokens[index_end + 1].text.isspace():
                 warning("space before pointer operator '%s'" % op_text, index_start, index_end)
@@ -329,9 +361,9 @@ def blender_check_operator(index_start, index_end, op_text):
         # if (a &&
         #     !b)
         pass
-    elif op_text[0] == "*" and tokens[index_start + 1].text.isspace() == False:
+    elif op_text[0] == "*" and tokens[index_start + 1].text.isspace() is False:
         pass  # *a = b
-    elif len(op_text) == 1 and op_text[0] == "-" and tokens[index_start + 1].text.isspace() == False:
+    elif len(op_text) == 1 and op_text[0] == "-" and tokens[index_start + 1].text.isspace() is False:
         pass  # -1
     elif len(op_text) == 1 and op_text[0] == "&":
         # if (a &&
@@ -368,6 +400,8 @@ def scan_source(fp, args):
 
     global filepath
 
+    is_cpp = fp.endswith((".cpp", ".cxx"))
+
     filepath = fp
     filepath_base = os.path.basename(filepath)
 
@@ -400,7 +434,7 @@ def scan_source(fp, args):
             # we check these in pairs, only want first
             if tokens[i - 1].type != Token.Operator:
                 op, index_kw_end = extract_operator(i)
-                blender_check_operator(i, index_kw_end, op)
+                blender_check_operator(i, index_kw_end, op, is_cpp)
         elif tok.type in Token.Comment:
             doxyfn = None
             if "\\file" in tok.text:
@@ -451,16 +485,10 @@ def scan_source_recursive(dirpath, args):
 
     def is_source(filename):
         ext = splitext(filename)[1]
-        return (ext in {".c", ".inl", ".cpp", ".cxx", ".hpp", ".hxx", ".h"})
+        return (ext in {".c", ".inl", ".cpp", ".cxx", ".hpp", ".hxx", ".h", ".osl"})
 
     for filepath in sorted(source_list(dirpath, is_source)):
-        if "datafiles" in filepath:
-            continue
-        if     (filepath.endswith(".glsl.c") or
-                filepath.endswith("DirectDrawSurface.cpp") or
-                filepath.endswith("fnmatch.c") or
-                filepath.endswith("smoke.c") or
-                filepath.endswith("md5.c")):
+        if is_ignore(filepath):
             continue
 
         scan_source(filepath, args)
