@@ -172,6 +172,25 @@ def tk_index_is_linestart(index):
     return tokens[index_prev].line < tokens[index].line
 
 
+def extract_text(index_start, index_end):
+    return "".join(tokens[i].text for i in range(index_start, index_end))
+
+
+def extract_to_linestart(index):
+    ls = []
+    line = tokens[index].line
+    index -= 1
+    while index > 0 and tokens[index].line == line:
+        ls.append(tokens[index].text)
+        index -= 1
+
+    if index != 0:
+        ls.append(tokens[index].text.rsplit("\n", 1)[1])
+
+    ls.reverse()
+    return "".join(ls)
+
+
 def extract_statement_if(index_kw):
     # assert(tokens[index_kw].text == "if")
 
@@ -405,6 +424,49 @@ def blender_check_kw_else(index_kw):
             warning("else has no newline before the brace '} else'", i_prev, index_kw)
 
 
+def blender_check_kw_switch(index_kw_start, index_kw, index_kw_end):
+    # In this function we check the body of the switch
+
+    # switch (value) {
+    # ...
+    # }
+
+    # assert(tokens[index_kw].text == "switch")
+
+    index_next = tk_advance_ws_newline(index_kw_end, 1)
+
+    if tokens[index_next].type == Token.Punctuation and tokens[index_next].text == "{":
+        ws_switch_indent = extract_to_linestart(index_kw)
+
+        # TODO, check case statement has a break, return or /* fall-through */
+
+        if ws_switch_indent.isspace():
+
+            # 'case' should have at least 1 indent.
+            # otherwise expect 2 indent (or more, for nested switches)
+            ws_test = {
+                "case": ws_switch_indent + "\t",
+                "default": ws_switch_indent + "\t",
+                "break": ws_switch_indent + "\t\t",
+                "return": ws_switch_indent + "\t\t",
+                }
+
+            index_final = tk_match_backet(index_next)
+
+            for i in range(index_next + 1, index_final):
+                if tokens[i].type == Token.Keyword:
+                    if tokens[i].text in {"case", "break", "return"}:
+                        ws_other_indent = extract_to_linestart(i)
+                        # non ws start - we ignore for now, allow case A: case B: ...
+                        if ws_other_indent.isspace():
+                            if not ws_other_indent.startswith(ws_test[tokens[i].text]):
+                                warning("%s is not indented enough" % tokens[i].text, i, i)
+        else:
+            warning("switch isn't the first token in the line", index_kw_start, index_kw_end)
+    else:
+        warning("switch brace missing", index_kw_start, index_kw_end)
+
+
 def blender_check_kw_sizeof(index_kw):
     if tokens[index_kw + 1].text != "(":
         warning("expected '%s('" % tokens[index_kw].text, index_kw, index_kw + 1)
@@ -585,7 +647,7 @@ def blender_check_function_definition(i):
     # Warning, this is a fairly slow check and guesses
     # based on some fuzzy rules
 
-    # assert(tokens[index] == "{")
+    # assert(tokens[index].text == "{")
 
     # check function declaration is not:
     #  'void myfunc() {'
@@ -647,6 +709,28 @@ def blender_check_function_definition(i):
                     # now we are done skipping stuff
 
                     warning("function's '{' must be on a newline", i_begin, i)
+
+
+def blender_check_brace_indent(i):
+    # assert(tokens[index].text == "{")
+
+    i_match = tk_match_backet(i)
+
+    if tokens[i].line != tokens[i_match].line:
+        ws_i_match = extract_to_linestart(i_match)
+
+        # allow for...
+        # a[] = {1, 2,
+        #        3, 4}
+        # ... so only check braces which are the first text
+        if ws_i_match.isspace():
+	        ws_i = extract_to_linestart(i)
+            ws_i_match_lstrip = ws_i_match.lstrip()
+
+            ws_i = ws_i[:len(ws_i) - len(ws_i.lstrip())]
+            ws_i_match = ws_i_match[:len(ws_i_match) - len(ws_i_match_lstrip)]
+            if ws_i != ws_i_match:
+                warning("indentation '{' does not match brace", i, i_match)
 
 
 def quick_check_indentation(code):
@@ -739,6 +823,8 @@ def scan_source(fp, args):
                 item_range = extract_statement_if(i)
                 if item_range is not None:
                     blender_check_kw_if(item_range[0], i, item_range[1])
+                if tok.text == "switch":
+                    blender_check_kw_switch(item_range[0], i, item_range[1])
             elif tok.text == "else":
                 blender_check_kw_else(i)
             elif tok.text == "sizeof":
@@ -764,6 +850,9 @@ def scan_source(fp, args):
                 if item_range is not None:
                     blender_check_cast(item_range[0], item_range[1])
             elif tok.text == "{":
+                # check matching brace is indented correctly (slow!)
+                blender_check_brace_indent(i)
+
                 # check previous character is either a '{' or whitespace.
                 if (tokens[i - 1].line == tok.line) and not (tokens[i - 1].text.isspace() or tokens[i - 1].text == "{"):
                     warning("no space before '{'", i, i)
