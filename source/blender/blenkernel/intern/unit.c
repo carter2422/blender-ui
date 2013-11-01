@@ -412,6 +412,43 @@ static int unit_as_string(char *str, int len_max, double value, int prec, bUnitC
 	return i;
 }
 
+
+void bUnit_AsString_smpte(char *str, int len_max, double value, double fps)
+{
+	int len;
+	int h,m,s,f;
+	double fractpart, intpart;
+
+	const int frames_in_sec = fps;
+	const int frames_in_min = frames_in_sec * 60;
+	const int frames_in_hr  = frames_in_min * 60;
+
+	fractpart = modf(value / frames_in_hr, &intpart);
+	h = (int) intpart;
+
+	value -= h * frames_in_hr;
+
+	fractpart = modf(value / frames_in_min, &intpart);
+	m = (int) intpart;
+
+	value -= m * frames_in_min;
+
+	fractpart = modf(value / frames_in_sec, &intpart);
+	s = (int) intpart;
+
+	value -= s * frames_in_sec;
+
+	f = value;
+
+	/* Convert to a string */
+	{
+		len = BLI_snprintf(str, len_max, "%02d:%02d:%02d:%02d", h, m, s, f);
+
+		if (len >= len_max)
+			str[len_max - 1] = '\0';
+	}
+}
+
 /* Used for drawing number buttons, try keep fast */
 void bUnit_AsString(char *str, int len_max, double value, int prec, int system, int type, int split, int pad)
 {
@@ -421,7 +458,7 @@ void bUnit_AsString(char *str, int len_max, double value, int prec, int system, 
 		usys = &buDummyCollection;
 
 	/* split output makes sense only for length, mass and time */
-	if (split && (type == B_UNIT_LENGTH || type == B_UNIT_MASS || type == B_UNIT_TIME || type == B_UNIT_CAMERA)) {
+	if (split && (type == B_UNIT_LENGTH || type == B_UNIT_MASS || type == B_UNIT_CAMERA)) {
 		bUnitDef *unit_a, *unit_b;
 		double value_a, value_b;
 
@@ -593,7 +630,7 @@ static int unit_find(const char *str, bUnitDef *unit)
  *
  * return true of a change was made.
  */
-int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double scale_pref, int system, int type)
+int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double scale_pref, int system, int type, int smpte)
 {
 	bUnitCollection *usys = unit_get_system(system, type);
 
@@ -612,6 +649,21 @@ int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double sca
 		for (i = 0; (i < len_max) && (*ch != '\0'); i++, ch++) {
 			if ((*ch >= 'A') && (*ch <= 'Z'))
 				*ch += ('a' - 'A');
+		}
+	}
+
+	if (smpte) {
+		int len = strlen(str);
+		char *ch = str + len - 1;
+		char str_smpte[4] = "smh\0";
+		char *c = &str_smpte[0];
+		int i, j=0;
+
+		for (i = 0; i < len && c != '\0'; i++, ch--) {
+			if (*ch == ':') {
+				*ch = *c;
+				c = &str_smpte[++j];
+			}
 		}
 	}
 
@@ -659,7 +711,7 @@ int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double sca
 		/* add the unit prefix and re-run, use brackets in case there was an expression given */
 		if (BLI_snprintf(str_tmp, sizeof(str_tmp), "(%s)%s", str, unit->name) < sizeof(str_tmp)) {
 			strncpy(str, str_tmp, len_max);
-			return bUnit_ReplaceString(str, len_max, NULL, scale_pref, system, type);
+			return bUnit_ReplaceString(str, len_max, NULL, scale_pref, system, type, smpte);
 		}
 		else {
 			/* BLI_snprintf would not fit into str_tmp, cant do much in this case
