@@ -94,6 +94,7 @@ typedef struct bUnitDef {
 #define B_UNIT_DEF_NONE 0
 #define B_UNIT_DEF_SUPPRESS 1 /* Use for units that are not used enough to be translated into for common use */
 #define B_UNIT_DEF_TENTH 2 /* Display a unit even if its value is 0.1, eg 0.1mm instead of 100um */
+#define B_UNIT_DEF_NOSCALE 4	/* ignore scale, take value as is */
 
 /* define a single unit */
 typedef struct bUnitCollection {
@@ -254,9 +255,10 @@ static struct bUnitDef buNaturalTimeDef[] = {
 	{"second", "seconds",           "sec", "s", "Seconds",      1.0, 0.0,       B_UNIT_DEF_NONE}, /* base unit */
 	{"millisecond", "milliseconds", "ms", NULL, "Milliseconds", 0.001, 0.0,     B_UNIT_DEF_NONE},
 	{"microsecond", "microseconds", "µs",  "us", "Microseconds", 0.000001, 0.0, B_UNIT_DEF_NONE},
+	{"frame", "frames",             "f",  NULL, "Frames",       1.0, 0.0,       B_UNIT_DEF_SUPPRESS|B_UNIT_DEF_NOSCALE},
 	{NULL, NULL, NULL, NULL, NULL, 0.0, 0.0}
 };
-static struct bUnitCollection buNaturalTimeCollection = {buNaturalTimeDef, 3, 0, sizeof(buNaturalTimeDef) / sizeof(bUnitDef)};
+static struct bUnitCollection buNaturalTimeCollection = {buNaturalTimeDef, 6, 0, sizeof(buNaturalTimeDef) / sizeof(bUnitDef)};
 
 
 static struct bUnitDef buNaturalRotDef[] = {
@@ -562,7 +564,10 @@ static int unit_scale_str(char *str, int len_max, char *str_tmp, double scale_pr
 
 		len_name = strlen(replace_str);
 		len_move = (len - (found_ofs + len_name)) + 1; /* 1+ to copy the string terminator */
-		len_num = BLI_snprintf(str_tmp, TEMP_STR_SIZE, "*%g"SEP_STR, unit->scalar / scale_pref); /* # removed later */
+		if (unit->flag & B_UNIT_DEF_NOSCALE)
+			len_num = BLI_snprintf(str_tmp, TEMP_STR_SIZE, SEP_STR); /* # removed later */
+		else
+			len_num = BLI_snprintf(str_tmp, TEMP_STR_SIZE, "*%g"SEP_STR, unit->scalar / scale_pref); /* # removed later */
 
 		if (len_num > len_max)
 			len_num = len_max;
@@ -657,34 +662,12 @@ int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double sca
 		char *ch;
 		char str_smpte[4] = "smh\0";
 		char *c = &str_smpte[0];
-		int i, j=0;
-		bool init;
+		int i;
 
-		/* strip off leading zeros */
-		init = true;
-		ch = str;
-		for (i = 0; i < len && ch != '\0'; ch++) {
-			if (init) {
-				if (*ch == '0')
-					continue;
-				else
-					init=false;
-			}
-			if (*ch == ':')
-				init = true;
-
-			str[i++] = *ch;
-		}
-		str[i] = '\0';
-
-		/* converting 01:33:49:6 to 1h33m49s6 */
-		len = strlen(str);
-		ch = str + len - 1;
-
-		for (i = 0; i < len && c != '\0'; i++, ch--) {
+		for (i = 0; i < len && *c != '\0'; i++, ch--) {
 			if (*ch == ':') {
 				*ch = *c;
-				c = &str_smpte[++j];
+				c++;
 			}
 		}
 
