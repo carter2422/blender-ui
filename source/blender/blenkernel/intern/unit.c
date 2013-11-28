@@ -654,10 +654,32 @@ int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double sca
 
 	if (smpte) {
 		int len = strlen(str);
-		char *ch = str + len - 1;
+		char *ch;
 		char str_smpte[4] = "smh\0";
 		char *c = &str_smpte[0];
 		int i, j=0;
+		bool init;
+
+		/* strip off leading zeros */
+		init = true;
+		ch = str;
+		for (i = 0; i < len && ch != '\0'; ch++) {
+			if (init) {
+				if (*ch == '0')
+					continue;
+				else
+					init=false;
+			}
+			if (*ch == ':')
+				init = true;
+
+			str[i++] = *ch;
+		}
+		str[i] = '\0';
+
+		/* converting 01:33:49:6 to 1h33m49s6 */
+		len = strlen(str);
+		ch = str + len - 1;
 
 		for (i = 0; i < len && c != '\0'; i++, ch--) {
 			if (*ch == ':') {
@@ -665,6 +687,8 @@ int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double sca
 				c = &str_smpte[++j];
 			}
 		}
+
+
 	}
 
 	for (unit = usys->units; unit->name; unit++) {
