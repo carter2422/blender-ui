@@ -756,6 +756,14 @@ int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double sca
 	return changed;
 }
 
+void bUnit_ToUnitAltName_smpte(char *str, int len_max, const char *orig_str, double fps)
+{
+	double frame;
+	sscanf (orig_str, "%lf", &frame);
+
+	bUnit_AsString_smpte(str, len_max, frame, fps);
+}
+
 /* 45µm --> 45um */
 void bUnit_ToUnitAltName(char *str, int len_max, const char *orig_str, int system, int type)
 {

@@ -44,6 +44,7 @@ int     bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double
 
 /* make string keyboard-friendly: 10µm --> 10um */
 void bUnit_ToUnitAltName(char *str, int len_max, const char *orig_str, int system, int type);
+void bUnit_ToUnitAltName_smpte(char *str, int len_max, const char *orig_str, double fps);
 
 /* the size of the unit used for this value (used for calculating the ckickstep) */
 double bUnit_ClosestScalar(double value, int system, int type);
