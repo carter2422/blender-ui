@@ -1801,11 +1801,15 @@ void ui_convert_to_unit_alt_name(uiBut *but, char *str, size_t maxlen)
 		UnitSettings *unit = but->block->unit;
 		int unit_type = uiButGetUnitType(but);
 		char *orig_str;
+		const bool smpte = ui_is_but_smpte(but);
 		
 		orig_str = MEM_callocN(sizeof(char) * maxlen + 1, "textedit sub str");
 		memcpy(orig_str, str, maxlen);
-		
-		bUnit_ToUnitAltName(str, maxlen, orig_str, unit->system, RNA_SUBTYPE_UNIT_VALUE(unit_type));
+
+		if (smpte)
+			bUnit_ToUnitAltName_smpte(str, maxlen, orig_str, ui_get_but_fps(but));
+		else
+			bUnit_ToUnitAltName(str, maxlen, orig_str, unit->system, RNA_SUBTYPE_UNIT_VALUE(unit_type));
 		
 		MEM_freeN(orig_str);
 	}
