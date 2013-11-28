@@ -659,19 +659,55 @@ int bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double sca
 
 	if (smpte) {
 		int len = strlen(str);
-		char *ch;
-		char str_smpte[4] = "smh\0";
+		char *ch = str + len - 1;
+		char str_smpte[4] = "smh";
 		char *c = &str_smpte[0];
+		char found_smtpe = 0;
 		int i;
 
 		for (i = 0; i < len && *c != '\0'; i++, ch--) {
 			if (*ch == ':') {
 				*ch = *c;
 				c++;
+				found_smtpe = 1;
 			}
 		}
-
-
+		if (found_smtpe) {
+			/* smpte can have leading '0': 01:02:03:04
+			   After inserting the unit it becomes: 01h02m03s04
+			   which pose a problem because leading 0 are not understood by blender !!!
+			 */
+			char state;  /* 0: not a digit, just copy
+							1: digit, leading '0'
+							2: digit, in number 
+						  */
+			for (c=str, ch=str, state=0; *ch != 0; ch++) {
+				if (isdigit(*ch)) {
+					if (state != 2 && *ch == '0') {
+						/* leading 0, skip */
+						state = 1;
+						continue;
+					}
+					/* in number, copy */
+					state = 2;
+				} else {
+					/* letter, close previous number*/
+					if (state == 1) {
+						/* the previous number only had '0', must at least add one */
+						/* we know for sure there is room for a '0' because
+						   one was skipped when state was set to 1 */
+						*c++ = '0';
+					}
+					state = 0;
+				}
+				if (c != ch)
+					*c = *ch;
+				c++;
+			}
+			if (state == 1)
+				*c++ = '0';
+			*c++ = 0;
+		}
 	}
 
 	for (unit = usys->units; unit->name; unit++) {
