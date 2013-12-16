@@ -170,20 +170,22 @@ class VIEW3D_MT_transform_base(Menu):
     def draw(self, context):
         layout = self.layout
 
+        col = layout.column(align=True)
         layout.operator("transform.translate", text="Grab/Move")
         # TODO: sub-menu for grab per axis
-        layout.operator("transform.rotate", text="Rotate")
+        col.operator("transform.rotate", text="Rotate")
         # TODO: sub-menu for rot per axis
-        layout.operator("transform.resize", text="Scale")
+        col.operator("transform.resize", text="Scale")
         # TODO: sub-menu for scale per axis
 
         layout.separator()
 
-        layout.operator("transform.tosphere", text="To Sphere")
-        layout.operator("transform.shear", text="Shear")
-        layout.operator("transform.bend", text="Bend")
-        layout.operator("transform.push_pull", text="Push/Pull")
-        layout.operator("object.vertex_warp", text="Warp")
+        col = layout.column(align=True)
+        col.operator("transform.tosphere", text="To Sphere")
+        col.operator("transform.shear", text="Shear")
+        col.operator("transform.bend", text="Bend")
+        col.operator("transform.push_pull", text="Push/Pull")
+        col.operator("object.vertex_warp", text="Warp")
 
 
 # Generic transform menu - geometry types
@@ -1039,10 +1041,11 @@ class VIEW3D_MT_object_animation(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("anim.keyframe_insert_menu", text="Insert Keyframe...")
-        layout.operator("anim.keyframe_delete_v3d", text="Delete Keyframes...")
-        layout.operator("anim.keyframe_clear_v3d", text="Clear Keyframes...")
-        layout.operator("anim.keying_set_active_set", text="Change Keying Set...")
+        col = layout.column(align=True)
+        col.operator("anim.keyframe_insert_menu", text="Insert Keyframe...")
+        col.operator("anim.keyframe_delete_v3d", text="Delete Keyframes...")
+        col.operator("anim.keyframe_clear_v3d", text="Clear Keyframes...")
+        col.operator("anim.keying_set_active_set", text="Change Keying Set...")
 
         layout.separator()
 
@@ -1288,10 +1291,11 @@ class VIEW3D_MT_object_quick_effects(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("object.quick_fur")
-        layout.operator("object.quick_explode")
-        layout.operator("object.quick_smoke")
-        layout.operator("object.quick_fluid")
+        col = layout.column(align=True)
+        col.operator("object.quick_fur")
+        col.operator("object.quick_explode")
+        col.operator("object.quick_smoke")
+        col.operator("object.quick_fluid")
 
 
 class VIEW3D_MT_object_showhide(Menu):

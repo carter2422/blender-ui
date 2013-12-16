@@ -54,7 +54,7 @@ def draw_keyframing_tools(context, layout):
 def draw_gpencil_tools(context, layout):
     col = layout.column(align=True)
 
-    col.label(text="Grease Pencil:")
+    # col.label(text="Grease Pencil:")
 
     row = col.row(align=True)
     row.operator("gpencil.draw", text="Draw").mode = 'DRAW'
@@ -71,6 +71,186 @@ def draw_gpencil_tools(context, layout):
 
 
 # ********** default tools for object-mode ****************
+
+class VIEW3D_PT_tools_objectmode_edit(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Edit"
+    bl_category = "Edit"
+
+    def draw(self, context):
+        layout = self.layout
+
+        row = layout.row(align=True)
+        row.operator("VIEW3D_OT_copybuffer", text="Copy")
+        row.operator("VIEW3D_OT_pastebuffer", text="Paste")
+        
+        row = layout.row(align=True)
+        row.operator("object.duplicate_move", text="Duplicate")
+        row.operator("object.duplicate_move_linked", text="Linked")
+
+        layout.operator("object.delete", text="Delete")
+
+        draw_repeat_tools(context, layout)
+
+
+class VIEW3D_PT_tools_objectmode_geometry(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Geometry"
+    bl_category = "Edit"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("object.join", text="Join")
+        layout.operator_menu_enum("object.convert", "target")
+
+        active_object = context.active_object
+        if active_object and active_object.type in {'MESH', 'CURVE', 'SURFACE'}:
+
+            col = layout.column(align=True)
+            col.label(text="Shading:")
+            row = col.row(align=True)
+            row.operator("object.shade_smooth", text="Smooth")
+            row.operator("object.shade_flat", text="Flat")
+
+
+class VIEW3D_PT_tools_objectmode_anim(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Keyframes"
+    bl_category = "Animation"
+
+    def draw(self, context):
+        layout = self.layout
+
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.operator("anim.keyframe_insert_menu", text="Insert")
+        row.operator("anim.keyframe_delete_v3d", text="Delete")
+        col.operator("anim.keyframe_clear_v3d", text="Clear")
+        col.operator("anim.keying_set_active_set", text="Change Keying Set")
+
+        layout.operator("nla.bake", text="Bake Action...")
+
+        col = layout.column(align=True)
+        col.label(text="Motion Paths:")
+        row = col.row(align=True)
+        row.operator("object.paths_calculate", text="Calculate")
+        row.operator("object.paths_clear", text="Clear")
+
+
+class VIEW3D_PT_tools_objectmode_gpencil(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Grease Pencil"
+    bl_category = "Animation"
+
+    def draw(self, context):
+        layout = self.layout
+        draw_gpencil_tools(context, layout)
+
+
+# bl_category = Transform 
+class VIEW3D_PT_tools_objectmode_transform(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Transform"
+    bl_category = "Transform"
+
+    def draw(self, context):
+        from .space_view3d import VIEW3D_MT_transform_base
+        layout = self.layout
+        VIEW3D_MT_transform_base.draw(self, context)
+
+
+class VIEW3D_PT_tools_objectmode_origin(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Origins"
+    bl_category = "Transform"
+
+    def draw(self, context):
+        from .space_view3d import VIEW3D_MT_transform_base
+        layout = self.layout
+
+        col = layout.column(align=True)
+        col.operator("object.align", text="Align")
+        col.operator("object.randomize_transform", text="Randomize")
+
+        layout.operator_menu_enum("object.origin_set", "type")
+        
+        row = layout.row(align=True)
+        row.menu("VIEW3D_MT_object_apply")
+        row.menu("VIEW3D_MT_object_clear")
+
+# # bl_category = Relations
+class VIEW3D_PT_tools_objectmode_parent(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Parent"
+    bl_category = "Relations"
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row(align=True)
+        row.operator_menu_enum("object.parent_set", "type", text="Make")
+        row.operator_menu_enum("object.parent_clear", "type", text="Clear")
+
+
+class VIEW3D_PT_tools_objectmode_track(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Track"
+    bl_category = "Relations"
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row(align=True)
+        row.operator_menu_enum("object.track_set", "type", text="Make")
+        row.operator_menu_enum("object.track_clear", "type", text="Clear")
+
+
+class VIEW3D_PT_tools_objectmode_constraints(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Constraints"
+    bl_category = "Relations"
+
+    def draw(self, context):
+        layout = self.layout
+
+        row = layout.row(align=True)
+        row.operator_menu_enum("object.constraint_add_with_targets", "type", text="Add")
+        row.operator("object.constraints_clear", text="Clear")
+        layout.operator("object.constraints_copy", text="Copy to Selected")
+
+
+class VIEW3D_PT_tools_objectmode_group(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Group"
+    bl_category = "Relations"
+
+    def draw(self, context):
+        layout = self.layout
+
+        col = layout.column(align=True)
+        col.operator("group.create", text="Create")
+
+        row = col.split(align=True, percentage=0.66)
+        row.operator("group.objects_remove", text="Remove")
+        row.operator("group.objects_remove_all", text="All")
+
+        col = layout.column(align=True)
+        col.operator("group.objects_add_active", text="Apply Active")
+        col.operator("group.objects_remove_active", text="Remove Active")
+
+
+class VIEW3D_PT_tools_objectmode_links(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Links"
+    bl_category = "Relations"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.menu("VIEW3D_MT_make_links", text="Make Links")
+        layout.operator_menu_enum("object.make_local", "type", text="Make Local")
+        layout.menu("VIEW3D_MT_make_single_user")
+
+
+'''
 
 class VIEW3D_PT_tools_objectmode(View3DPanel, Panel):
     bl_context = "objectmode"
@@ -94,32 +274,28 @@ class VIEW3D_PT_tools_objectmode(View3DPanel, Panel):
         col.operator("object.delete")
         col.operator("object.join")
 
-        active_object = context.active_object
-        if active_object and active_object.type in {'MESH', 'CURVE', 'SURFACE'}:
-
-            col = layout.column(align=True)
-            col.label(text="Shading:")
-            row = col.row(align=True)
-            row.operator("object.shade_smooth", text="Smooth")
-            row.operator("object.shade_flat", text="Flat")
-
         draw_keyframing_tools(context, layout)
-
-        col = layout.column(align=True)
-        col.label(text="Motion Paths:")
-        row = col.row(align=True)
-        row.operator("object.paths_calculate", text="Calculate")
-        row.operator("object.paths_clear", text="Clear")
 
         draw_repeat_tools(context, layout)
 
         draw_gpencil_tools(context, layout)
 
+'''
+
+class VIEW3D_PT_tools_quickeffects(View3DPanel, Panel):
+    bl_context = "objectmode"
+    bl_label = "Quick Effects"
+    bl_category = "Physics"
+
+    def draw(self, context):
+        layout = self.layout
+        bpy.types.VIEW3D_MT_object_quick_effects.draw(self, context)
+
 
 class VIEW3D_PT_tools_rigidbody(View3DPanel, Panel):
     bl_context = "objectmode"
     bl_label = "Rigid Body Tools"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_category = "Physics"
 
     def draw(self, context):
         layout = self.layout

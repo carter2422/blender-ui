@@ -112,6 +112,36 @@ typedef struct Panel {		/* the part from uiBlock that needs saved in file */
 	void *activedata;			/* runtime for panel manipulation */
 } Panel;
 
+
+/* Notes on Panel Catogories:
+ *
+ * ar->panels_category (PanelCategoryDyn) is a runtime only list of categories collected during draw.
+ *
+ * ar->panels_category_active (PanelCategoryStack) is basically a list of strings (category id's).
+ *
+ * Clicking on a tab moves it to the front of ar->panels_category_active,
+ * If the context changes so this tab is no longer displayed,
+ * then the first-most tab in ar->panels_category_active is used.
+ *
+ * This way you can change modes and always have the tab you last clicked on.
+ */
+
+/* region level tabs */
+#
+#
+typedef struct PanelCategoryDyn {
+	struct PanelCategoryDyn *next, *prev;
+	char idname[64];
+	rcti rect;
+} PanelCategoryDyn;
+
+/* region stack of active tabs */
+typedef struct PanelCategoryStack {
+	struct PanelCategoryStack *next, *prev;
+	char idname[64];
+} PanelCategoryStack;
+
+
 /* uiList dynamic data... */
 /* These two Lines with # tell makesdna this struct can be excluded. */
 #
@@ -209,8 +239,10 @@ typedef struct ARegion {
 	
 	ListBase uiblocks;			/* uiBlock */
 	ListBase panels;			/* Panel */
+	ListBase panels_category_active;	/* Stack of panel categories */
 	ListBase ui_lists;			/* uiList */
 	ListBase handlers;			/* wmEventHandler */
+	ListBase panels_category;	/* Panel categories runtime */
 	
 	struct wmTimer *regiontimer; /* blend in/out */
 	
