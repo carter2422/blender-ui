@@ -25,13 +25,20 @@
  */
 
 
-#include <math.h>           /* fabs */
-#include <stdio.h>          /* for size_t */
-
 #include "BLI_utildefines.h"
+#include "BLI_math.h"
 #include "BLI_string.h"
 
+#include "BKE_context.h"
+#include "BKE_unit.h"
+
+#include "DNA_scene_types.h"
+
 #include "WM_types.h"
+
+#ifdef WITH_PYTHON
+#include "BPY_extern.h"
+#endif
 
 #include "ED_numinput.h"
 
@@ -41,76 +48,53 @@
 
 void initNumInput(NumInput *n)
 {
-	n->flag     =
-	n->idx      =
-	n->idx_max  =
-	n->inv[0]   =
-	n->inv[1]   =
-	n->inv[2]   =
-	n->ctrl[0]  = 
-	n->ctrl[1]  = 
-	n->ctrl[2]  = 0;
-
-	n->val[0]   = 
-	n->val[1]   = 
-	n->val[2]   = 0.0f;
+	n->unit_sys = USER_UNIT_NONE;
+	n->unit_type[0] = n->unit_type[1] = n->unit_type[2] = B_UNIT_NONE;
+	n->idx = 0;
+	n->idx_max = 0;
+	n->flag = 0;
+	n->edited[0] = n->edited[1] = n->edited[2] = false;
+	zero_v3(n->org_val);
+	zero_v3(n->val);
+	n->str[0] = '\0';
+	n->str_cur = -1;
+	n->increment = 1.0f;
 }
 
+/* str must be NUM_STR_REP_LEN * (idx_max + 1) length. */
 void outputNumInput(NumInput *n, char *str)
 {
-	char cur;
-	char inv[] = "1/";
 	short i, j;
 	const int ln = NUM_STR_REP_LEN;
 
 	for (j = 0; j <= n->idx_max; j++) {
 		/* if AFFECTALL and no number typed and cursor not on number, use first number */
-		if (n->flag & NUM_AFFECT_ALL && n->idx != j && n->ctrl[j] == 0)
-			i = 0;
-		else
-			i = j;
+		i = (n->flag & NUM_AFFECT_ALL && n->idx != j && !n->edited[j]) ? 0 : j;
 
-		if (n->idx != i)
-			cur = ' ';
-		else
-			cur = '|';
-
-		if (n->inv[i])
-			inv[0] = '1';
-		else
-			inv[0] = 0;
-
-		if (n->val[i] > 1e10f || n->val[i] < -1e10f)
-			BLI_snprintf(&str[j * ln], ln, "%s%.4e%c", inv, n->val[i], cur);
-		else
-			switch (n->ctrl[i]) {
-				case 0:
-					BLI_snprintf(&str[j * ln], ln, "%sNONE%c", inv, cur);
-					break;
-				case 1:
-				case -1:
-					BLI_snprintf(&str[j * ln], ln, "%s%.0f%c", inv, n->val[i], cur);
-					break;
-				case 10:
-				case -10:
-					BLI_snprintf(&str[j * ln], ln, "%s%.f.%c", inv, n->val[i], cur);
-					break;
-				case 100:
-				case -100:
-					BLI_snprintf(&str[j * ln], ln, "%s%.1f%c", inv, n->val[i], cur);
-					break;
-				case 1000:
-				case -1000:
-					BLI_snprintf(&str[j * ln], ln, "%s%.2f%c", inv, n->val[i], cur);
-					break;
-				case 10000:
-				case -10000:
-					BLI_snprintf(&str[j * ln], ln, "%s%.3f%c", inv, n->val[i], cur);
-					break;
-				default:
-					BLI_snprintf(&str[j * ln], ln, "%s%.4e%c", inv, n->val[i], cur);
-					break;
+		if (n->edited[i]) {
+			if (i == n->idx && n->str[0]) {
+				char before_cursor[NUM_STR_REP_LEN];
+				BLI_strncpy(before_cursor, n->str, n->str_cur + 2);  /* +2 because of trailing '\0' */
+				BLI_snprintf(&str[j * ln], ln, "%s|%s", before_cursor, &n->str[n->str_cur + 1]);
 			}
+			else {
+				const char *cur = (i == n->idx) ? "|" : "";
+				if (n->unit_use_radians && n->unit_type[i] == B_UNIT_ROTATION) {
+					/* Radian exception... */
+					BLI_snprintf(&str[j * ln], ln, "%s%.6gr%s", cur, n->val[i], cur);
+				}
+				else {
+					const int prec = 4; /* draw-only, and avoids too much issues with radian->degrees conversion. */
+					char tstr[NUM_STR_REP_LEN];
+					bUnit_AsString(tstr, ln, (double)n->val[i], prec, n->unit_sys, n->unit_type[i], true, false);
+					BLI_snprintf(&str[j * ln], ln, "%s%s%s", cur, tstr, cur);
+				}
+			}
+		}
+		else {
+			const char *cur = (i == n->idx) ? "|" : "";
+			BLI_snprintf(&str[j * ln], ln, "%sNONE%s", cur, cur);
+		}
 	}
 }
 
@@ -119,7 +103,7 @@ bool hasNumInput(const NumInput *n)
 	short i;
 
 	for (i = 0; i <= n->idx_max; i++) {
-		if (n->ctrl[i])
+		if (n->edited[i])
 			return true;
 	}
 
@@ -132,177 +116,159 @@ bool hasNumInput(const NumInput *n)
 void applyNumInput(NumInput *n, float *vec)
 {
 	short i, j;
+	float val;
 
 	if (hasNumInput(n)) {
 		for (j = 0; j <= n->idx_max; j++) {
 			/* if AFFECTALL and no number typed and cursor not on number, use first number */
-			if (n->flag & NUM_AFFECT_ALL && n->idx != j && n->ctrl[j] == 0)
-				i = 0;
-			else
-				i = j;
+			i = (n->flag & NUM_AFFECT_ALL && n->idx != j && !n->edited[j]) ? 0 : j;
+			val = (!n->edited[i] && n->flag & NUM_NULL_ONE) ? 1.0f : n->val[i];
 
-			if (n->ctrl[i] == 0 && n->flag & NUM_NULL_ONE) {
-				vec[j] = 1.0f;
+			if (n->flag & NUM_NO_NEGATIVE && val < 0.0f) {
+				val = 0.0f;
 			}
-			else if (n->val[i] == 0.0f && n->flag & NUM_NO_ZERO) {
-				vec[j] = 0.0001f;
+			if (n->flag & NUM_NO_ZERO && val == 0.0f) {
+				val = 0.0001f;
 			}
-			else {
-				if (n->inv[i]) {
-					vec[j] = 1.0f / n->val[i];
-				}
-				else {
-					vec[j] = n->val[i];
+			if (n->flag & NUM_NO_FRACTION && val != floorf(val)) {
+				val = (float)round((double)val);
+				if (n->flag & NUM_NO_ZERO && val == 0.0f) {
+					val = 1.0f;
 				}
 			}
+			vec[j] = val;
 		}
 	}
 }
 
-bool handleNumInput(NumInput *n, const wmEvent *event)
+bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 {
-	float Val = 0;
+	char chr = '\0';
+	bool updated = false;
 	short idx = n->idx, idx_max = n->idx_max;
+	short dir = 1, cur;
+	double val;
 
-	if (event->type == EVT_MODAL_MAP) {
-		switch (event->val) {
-			case NUM_MODAL_INCREMENT_UP:
-				if (!n->ctrl[idx])
-					n->ctrl[idx] = 1;
-
-				n->val[idx] += n->increment;
-				break;
-			case NUM_MODAL_INCREMENT_DOWN:
-				if (!n->ctrl[idx])
-					n->ctrl[idx] = 1;
-
-				n->val[idx] -= n->increment;
-				break;
-			default:
-				return 0;
-		}
-	}
-	else {
-		switch (event->type) {
-			case BACKSPACEKEY:
-				if (n->ctrl[idx] == 0) {
-					n->val[0]       =
-					    n->val[1]   =
-					    n->val[2]   = 0.0f;
-					n->ctrl[0]      =
-					    n->ctrl[1]  =
-					    n->ctrl[2]  = 0;
-					n->inv[0]       =
-					    n->inv[1]   =
-					    n->inv[2]   = 0;
+	switch (event->type) {
+		case EVT_MODAL_MAP:
+			if (ELEM(event->val, NUM_MODAL_INCREMENT_UP, NUM_MODAL_INCREMENT_DOWN)) {
+				n->val[idx] += (event->val == NUM_MODAL_INCREMENT_UP) ? n->increment : -n->increment;
+				if (n->str_cur >= 0) {
+					n->str[0] = '\0';
+					n->str_cur = -1;
 				}
 				else {
-					n->val[idx] = 0.0f;
-					n->ctrl[idx] = 0;
-					n->inv[idx] = 0;
+					n->edited[idx] = true;
 				}
-				break;
-			case PERIODKEY: case PADPERIOD:
-				if (n->flag & NUM_NO_FRACTION)
-					return 0;
-
-				switch (n->ctrl[idx]) {
-					case 0:
-					case 1:
-						n->ctrl[idx] = 10;
-						break;
-					case -1:
-						n->ctrl[idx] = -10;
-						break;
-				}
-				break;
-			case PADMINUS:
-				if (event->alt)
-					break;
-				/* fall-through */
-			case MINUSKEY:
-				if (n->flag & NUM_NO_NEGATIVE)
-					return 0;
-
-				if (n->ctrl[idx]) {
-					n->ctrl[idx] *= -1;
-					n->val[idx] *= -1;
-				}
-				else
-					n->ctrl[idx] = -1;
-				break;
-			case PADSLASHKEY: case SLASHKEY:
-				if (n->flag & NUM_NO_FRACTION)
-					return 0;
-
-				n->inv[idx] = !n->inv[idx];
-				break;
-			case TABKEY:
-				if (idx_max == 0)
-					return 0;
-
-				idx++;
-				if (idx > idx_max)
-					idx = 0;
-				n->idx = idx;
-				break;
-			case PAD9: case NINEKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD8: case EIGHTKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD7: case SEVENKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD6: case SIXKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD5: case FIVEKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD4: case FOURKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD3: case THREEKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD2: case TWOKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD1: case ONEKEY:
-				Val += 1.0f;
-				/* fall-through */
-			case PAD0: case ZEROKEY:
-				if (!n->ctrl[idx])
-					n->ctrl[idx] = 1;
-
-				if (fabsf(n->val[idx]) > 9999999.0f) {
-					/* pass */
-				}
-				else if (n->ctrl[idx] == 1) {
-					n->val[idx] *= 10;
-					n->val[idx] += Val;
-				}
-				else if (n->ctrl[idx] == -1) {
-					n->val[idx] *= 10;
-					n->val[idx] -= Val;
+				updated = true;
+			}
+			else {
+				/* might be a char too... */
+				chr = event->ascii;
+			}
+			break;
+		case BACKSPACEKEY:
+			cur = n->str_cur;
+			if (!n->edited[idx]) {
+				copy_v3_v3(n->val, n->org_val);
+				n->edited[0] = n->edited[1] = n->edited[2] = false;
+			}
+			else if (event->shift || !n->str[0]) {
+				n->val[idx] = n->org_val[idx];
+				n->edited[idx] = false;
+				n->str[0] = '\0';
+				n->str_cur = -1;
+			}
+			else if (cur > -1) {
+				if (cur + 1 < NUM_STR_REP_LEN && n->str[cur + 1]) {
+					char tstr[NUM_STR_REP_LEN];
+					BLI_strncpy(tstr, &n->str[cur + 1], NUM_STR_REP_LEN);
+					BLI_strncpy(&n->str[cur], tstr, NUM_STR_REP_LEN - cur);
 				}
 				else {
-					/* float resolution breaks when over six digits after comma */
-					if (ABS(n->ctrl[idx]) < 10000000) {
-						n->val[idx] += Val / (float)n->ctrl[idx];
-						n->ctrl[idx] *= 10;
-					}
+					n->str[cur] = '\0';
 				}
-				break;
-			default:
-				return 0;
-		}
+				n->str_cur--;
+			}
+			else {
+				return false;
+			}
+			updated = true;
+			break;
+		case LEFTARROWKEY:
+			dir = -1;
+			/* fall-through */
+		case RIGHTARROWKEY:
+			cur = n->str_cur + dir;
+			if (cur >= NUM_STR_REP_LEN || cur < -1 || (cur >= 0 && !n->str[cur]))
+				return false;
+			n->str_cur = cur;
+			return true;
+		case TABKEY:
+			n->org_val[idx] = n->val[idx];
+
+			idx += event->ctrl ? -1 : 1;
+			if (idx > idx_max)
+				idx = 0;
+			else if (idx < 0)
+				idx = idx_max;
+			n->idx = idx;
+			n->str[0] = '\0';
+			n->str_cur = -1;
+			n->val[idx] = n->org_val[idx];
+			return true;
+		default:
+			chr = event->ascii;
+			break;
 	}
-	
-	// printf("%f\n", n->val[idx]);
+
+	if (chr) {
+		cur = n->str_cur + 1;
+		if (cur >= NUM_STR_REP_LEN)
+			return false;
+
+		if (n->str[cur] && (cur + 1 < NUM_STR_REP_LEN)) {
+			char tstr[NUM_STR_REP_LEN];
+			BLI_strncpy(tstr, &n->str[cur], NUM_STR_REP_LEN);
+			n->str[cur] = chr;
+			BLI_strncpy(&n->str[cur + 1], tstr, NUM_STR_REP_LEN - (cur + 1));
+		}
+		else {
+			n->str[cur] = chr;
+			n->str[cur + 1] = '\0';
+		}
+		n->str_cur++;
+		n->edited[idx] = true;
+	}
+	else if (!updated) {
+		return false;
+	}
+
+	/* At this point, our value has changed, try to interpret it with python (if str is not empty!). */
+	if (n->str[0]) {
+#ifdef WITH_PYTHON
+		char str_unit_convert[NUM_STR_REP_LEN * 6];  /* Should be more than enough! */
+		const char *default_unit = NULL;
+		char *c;
+
+		/* Make radian default unit when needed. */
+		if (n->unit_use_radians && n->unit_type[idx] == B_UNIT_ROTATION)
+			default_unit = "r";
+
+		BLI_strncpy(str_unit_convert, n->str, sizeof(str_unit_convert));
+
+		bUnit_ReplaceString(str_unit_convert, sizeof(str_unit_convert), default_unit, 1.0,
+		                    n->unit_sys, n->unit_type[idx]);
+
+		/* Note: with angles, we always get values as radians here... */
+		if (BPY_button_exec(C, str_unit_convert, &val, false) != -1) {
+			n->val[idx] = (float)val;
+		}
+#else  /* Very unlikely, but does not harm... */
+		n->val[idx] = (float)atof(n->str);
+#endif  /* WITH_PYTHON */
+	}
 
 	/* REDRAW SINCE NUMBERS HAVE CHANGED */
-	return 1;
+	return true;
 }
