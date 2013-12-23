@@ -33,6 +33,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "MEM_guardedalloc.h"
 
 #include "DNA_screen_types.h"
 #include "DNA_userdef_types.h"
@@ -982,6 +983,74 @@ static void ui_text_clip_left(uiFontStyle *fstyle, uiBut *but, const rcti *rect)
 }
 
 /**
+ * Cut off the middle of the text to fit into the width of \a rect
+ */
+static void ui_text_clip_middle(uiFontStyle *fstyle, uiBut *but, const rcti *rect)
+{
+	int border = (but->drawflag & UI_BUT_ALIGN_RIGHT) ? 8 : 10;
+	int okwidth = BLI_rcti_size_x(rect) - border;
+	float strwidth;
+
+	if (but->flag & UI_HAS_ICON)
+		okwidth -= UI_DPI_ICON_SIZE;
+	if ((but->type == SEARCH_MENU_UNLINK) && ui_is_but_search_unlink_visible(but))
+		okwidth -= BLI_rcti_size_y(rect);
+
+	okwidth = max_ii(okwidth, 0);
+
+	/* need to set this first */
+	uiStyleFontSet(fstyle);
+
+	if (fstyle->kerning == 1) /* for BLF_width */
+		BLF_enable(fstyle->uifont_id, BLF_KERNING_DEFAULT);
+
+	but->ofs = 0;
+	strwidth = BLF_width(fstyle->uifont_id, but->drawstr, sizeof(but->drawstr));
+
+	if (strwidth > okwidth) {
+		const char *sep = "...";
+		char static_buff[256];
+		char *buff = static_buff;
+		size_t r_offset, l_end;
+		float sep_strwidth = BLF_width(fstyle->uifont_id, sep, sizeof(sep));
+		float parts_strwidth = ((float)okwidth - sep_strwidth) / 2.0f;
+		float r_strwidth, l_strwidth;
+
+		if (parts_strwidth < (float)UI_DPI_ICON_SIZE) {
+			/* If we really have no place, only show start of string. */
+			l_end = BLF_width_to_strlen(fstyle->uifont_id, but->drawstr, sizeof(but->drawstr), okwidth, &l_strwidth);
+			but->drawstr[l_end] = '\0';
+		}
+		else {
+			size_t r_len;
+
+			l_end = BLF_width_to_strlen(fstyle->uifont_id, but->drawstr, sizeof(but->drawstr),
+			                            parts_strwidth, &l_strwidth);
+			r_offset = BLF_width_to_rstrlen(fstyle->uifont_id, but->drawstr, sizeof(but->drawstr),
+			                                parts_strwidth, &r_strwidth);
+
+			r_len = strlen(but->drawstr + r_offset) + 1;
+			if (r_len > sizeof(buff)) {
+				buff = MEM_mallocN(sizeof(char) * r_len, __func__);
+			}
+			BLI_strncpy(buff, but->drawstr + r_offset, r_len);
+			BLI_snprintf(but->drawstr + l_end, sizeof(but->drawstr) - l_end, "%s%s", sep, buff);
+			if (buff != static_buff) {
+				MEM_freeN(buff);
+			}
+		}
+
+		strwidth = BLF_width(fstyle->uifont_id, but->drawstr, sizeof(but->drawstr));
+	}
+
+	but->strwidth = strwidth;
+
+	if (fstyle->kerning == 1) {
+		BLF_disable(fstyle->uifont_id, BLF_KERNING_DEFAULT);
+	}
+}
+
+/**
  * Cut off the text, taking into account the cursor location (text display while editing).
  */
 static void ui_text_clip_cursor(uiFontStyle *fstyle, uiBut *but, const rcti *rect)
@@ -1310,7 +1379,7 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 		ui_text_clip_right_label(fstyle, but, rect);
 	}
 	else if (ELEM3(but->type, TEX, SEARCH_MENU, SEARCH_MENU_UNLINK)) {
-		ui_text_clip_left(fstyle, but, rect);
+		ui_text_clip_middle(fstyle, but, rect);
 	}
 	else if ((but->block->flag & UI_BLOCK_LOOP) && (but->type == BUT)) {
 		ui_text_clip_left(fstyle, but, rect);
