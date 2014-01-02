@@ -32,6 +32,9 @@
 #include "DNA_object_types.h"
 
 #include "BLI_math.h"
+#include "BLI_string.h"
+
+#include "BLF_translation.h"
 
 #include "BKE_global.h"
 #include "BKE_context.h"
@@ -111,8 +114,11 @@ static bool mesh_bisect_interactive_calc(
 
 static int mesh_bisect_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+#define HEADER_LENGTH 256
+
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	char header[HEADER_LENGTH];
 	int ret;
 
 	if (em->bm->totedgesel == 0) {
@@ -147,8 +153,14 @@ static int mesh_bisect_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		G.moving = G_TRANSFORM_EDIT;
 		opdata->twtype = v3d->twtype;
 		v3d->twtype = 0;
+
+		/* initialize modal callout */
+		BLI_snprintf(header, HEADER_LENGTH, IFACE_("LMB: Click and drag to draw cut line"));
+		ED_area_headerprint(CTX_wm_area(C), header);
 	}
 	return ret;
+	
+#undef HEADER_LENGTH	
 }
 
 static void edbm_bisect_exit(bContext *C, BisectData *opdata)
@@ -161,18 +173,33 @@ static void edbm_bisect_exit(bContext *C, BisectData *opdata)
 
 static int mesh_bisect_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
+#define HEADER_LENGTH 256
+
 	wmGesture *gesture = op->customdata;
 	BisectData *opdata = gesture->userdata;
 	BisectData opdata_back = *opdata;  /* annoyance, WM_gesture_straightline_modal, frees */
+	char header[HEADER_LENGTH];
 	int ret;
 
 	ret = WM_gesture_straightline_modal(C, op, event);
+
+	/* update or clear modal callout */
+	if (event->type == EVT_MODAL_MAP) {
+		if(event->val == GESTURE_MODAL_BEGIN) {
+			BLI_snprintf(header, HEADER_LENGTH, IFACE_("LMB: Release to confirm cut line"));
+			ED_area_headerprint(CTX_wm_area(C), header);
+		} else {
+			ED_area_headerprint(CTX_wm_area(C), NULL);
+		}
+	}
 
 	if (ret & (OPERATOR_FINISHED | OPERATOR_CANCELLED)) {
 		edbm_bisect_exit(C, &opdata_back);
 	}
 
 	return ret;
+
+#undef HEADER_LENGTH
 }
 
 /* End Model Helpers */
