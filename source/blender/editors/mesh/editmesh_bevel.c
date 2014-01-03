@@ -144,6 +144,7 @@ static bool edbm_bevel_calc(wmOperator *op)
 	const int offset_type = RNA_enum_get(op->ptr, "offset_type");
 	const int segments = RNA_int_get(op->ptr, "segments");
 	const bool vertex_only = RNA_boolean_get(op->ptr, "vertex_only");
+    const float profile_power = RNA_float_get(op->ptr, "profile_power");
 
 	/* revert to original mesh */
 	if (opdata->is_modal) {
@@ -151,8 +152,8 @@ static bool edbm_bevel_calc(wmOperator *op)
 	}
 
 	EDBM_op_init(em, &bmop, op,
-	             "bevel geom=%hev offset=%f segments=%i vertex_only=%b offset_type=%i",
-	             BM_ELEM_SELECT, offset, segments, vertex_only, offset_type);
+	             "bevel geom=%hev offset=%f segments=%i vertex_only=%b offset_type=%i profile_power=%f",
+	             BM_ELEM_SELECT, offset, segments, vertex_only, offset_type, profile_power);
 
 	BMO_op_exec(em->bm, &bmop);
 
@@ -428,4 +429,5 @@ void MESH_OT_bevel(wmOperatorType *ot)
 	RNA_def_float(ot->srna, "offset", 0.0f, -FLT_MAX, FLT_MAX, "Amount", "", 0.0f, 1.0f);
 	RNA_def_int(ot->srna, "segments", 1, 1, 50, "Segments", "Segments for curved edge", 1, 8);
 	RNA_def_boolean(ot->srna, "vertex_only", false, "Vertex only", "Bevel only vertices");
+    RNA_def_float(ot->srna, "profile_power", 2.0f, 0.0f, FLT_MAX, "Profile", "Controls profile shape (2.0 = round)", 0.1f, 4.0f);
 }
