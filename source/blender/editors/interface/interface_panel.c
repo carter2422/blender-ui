@@ -1384,7 +1384,7 @@ static void ui_panel_category_draw_tab(int mode, float minx, float miny, float m
 void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 {
 	/* no tab outlines for */
-#define USE_FLAT_INACTIVE
+// #define USE_FLAT_INACTIVE
 	View2D *v2d = &ar->v2d;
 	uiStyle *style = UI_GetStyle();
 	const uiFontStyle *fstyle = &style->widget;
@@ -1393,7 +1393,7 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 
 	PanelCategoryDyn *pc_dyn;
 	const float aspect = ((uiBlock *)ar->uiblocks.first)->aspect;
-	const float zoom = 1.0f / aspect;
+	const float zoom = 1.2f / aspect;
 	const int px = max_ii(1.0, (int)U.pixelsize + 0.5f);
 	const int category_tabs_width = UI_PANEL_CATEGORY_MARGIN_WIDTH * zoom;
 	const float dpi_fac = UI_DPI_FAC;
