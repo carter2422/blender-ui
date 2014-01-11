@@ -1385,6 +1385,7 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 {
 	/* no tab outlines for */
 // #define USE_FLAT_INACTIVE
+#define UI_PANEL_CATEGORY_MARGIN_WIDTH (U.widget_unit * 1.1f)
 	View2D *v2d = &ar->v2d;
 	uiStyle *style = UI_GetStyle();
 	const uiFontStyle *fstyle = &style->widget;
@@ -1393,7 +1394,7 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 
 	PanelCategoryDyn *pc_dyn;
 	const float aspect = ((uiBlock *)ar->uiblocks.first)->aspect;
-	const float zoom = 1.2f / aspect;
+	const float zoom = 1.0f / aspect;
 	const int px = max_ii(1.0, (int)U.pixelsize + 0.5f);
 	const int category_tabs_width = UI_PANEL_CATEGORY_MARGIN_WIDTH * zoom;
 	const float dpi_fac = UI_DPI_FAC;
@@ -1541,8 +1542,27 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 
 		BLF_position(fontid, rct->xmax - text_v_ofs, rct->ymin + tab_v_pad_text, 0.0f);
 
-		glColor3ubv(theme_col_text);
+		/* tab titles */
+
+		/* draw white drop shadow to give text more depth */
+		if (!is_active) {
+			glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
+			BLF_position(fontid, rct->xmax - text_v_ofs + 1, rct->ymin + tab_v_pad_text, 0.0f);
+			BLF_draw(fontid, category_id_draw, category_draw_len);
+		}	
+
+		if (!is_active) {
+			glColor3ubv(theme_col_text);
+			BLF_position(fontid, rct->xmax - text_v_ofs, rct->ymin + tab_v_pad_text, 0.0f);
+			BLF_draw(fontid, category_id_draw, category_draw_len);
+		}
+
+		if (is_active) {
+			glColor3ubv(theme_col_text_hi);
+		}
+
 		BLF_draw(fontid, category_id_draw, category_draw_len);
+
 
 		glDisable(GL_BLEND);
 
