@@ -1549,15 +1549,13 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 			glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
 			BLF_position(fontid, rct->xmax - text_v_ofs + 1, rct->ymin + tab_v_pad_text, 0.0f);
 			BLF_draw(fontid, category_id_draw, category_draw_len);
-		}	
-
-		if (!is_active) {
+			
 			glColor3ubv(theme_col_text);
 			BLF_position(fontid, rct->xmax - text_v_ofs, rct->ymin + tab_v_pad_text, 0.0f);
 			BLF_draw(fontid, category_id_draw, category_draw_len);
 		}
 
-		if (is_active) {
+		else {
 			glColor3ubv(theme_col_text_hi);
 		}
 
