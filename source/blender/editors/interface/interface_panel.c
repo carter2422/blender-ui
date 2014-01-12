@@ -1385,7 +1385,6 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 {
 	/* no tab outlines for */
 // #define USE_FLAT_INACTIVE
-#define UI_PANEL_CATEGORY_MARGIN_WIDTH (U.widget_unit * 1.1f)
 	View2D *v2d = &ar->v2d;
 	uiStyle *style = UI_GetStyle();
 	const uiFontStyle *fstyle = &style->widget;
