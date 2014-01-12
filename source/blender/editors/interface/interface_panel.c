@@ -1542,20 +1542,19 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 		BLF_position(fontid, rct->xmax - text_v_ofs, rct->ymin + tab_v_pad_text, 0.0f);
 
 		/* tab titles */
-
-		/* draw white drop shadow to give text more depth */
 		if (!is_active) {
-			glColor4f(1.0f, 1.0f, 1.0f, 0.2f);
-			BLF_position(fontid, rct->xmax - text_v_ofs + 2, rct->ymin + tab_v_pad_text + -2, 0.0f);
-			BLF_draw(fontid, category_id_draw, category_draw_len);
-			
 			glColor3ubv(theme_col_text);
-			BLF_position(fontid, rct->xmax - text_v_ofs, rct->ymin + tab_v_pad_text, 0.0f);
-			BLF_draw(fontid, category_id_draw, category_draw_len);
+			/* draw white shadow to give text more depth */
+			BLF_enable(fontid, BLF_SHADOW);
+			BLF_shadow(fontid, 3, 1.0f, 1.0f, 1.0f, 0.15f);
+			BLF_shadow_offset(fontid, -1, -1);
 		}
-
 		else {
 			glColor3ubv(theme_col_text_hi);
+			/* draw black shadow to give text more depth */
+			BLF_enable(fontid, BLF_SHADOW);
+			BLF_shadow(fontid, 3, 0.0f, 0.0f, 0.0f, 0.2f);
+			BLF_shadow_offset(fontid, 1, 1);
 		}
 
 		BLF_draw(fontid, category_id_draw, category_draw_len);
