@@ -1430,10 +1430,10 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 	UI_GetThemeColor4ubv(TH_BACK, theme_col_back);
 	UI_GetThemeColor4ubv(TH_TEXT, theme_col_text);
 	UI_GetThemeColor4ubv(TH_TEXT_HI, theme_col_text_hi);
+	UI_GetThemeColor4ubv(TH_BACK, theme_col_tab_bg);
 
-
-	blend_color_interpolate_byte(theme_col_tab_bg, theme_col_back, theme_col_text, 0.12f);
-	blend_color_interpolate_byte(theme_col_tab_inactive, theme_col_back, theme_col_text, 0.1f);
+	//blend_color_interpolate_byte(theme_col_tab_bg, theme_col_back, theme_col_text, 1.0F);
+	blend_color_interpolate_byte(theme_col_tab_inactive, theme_col_back, theme_col_text, 0.25f);
 	blend_color_interpolate_byte(theme_col_tab_outline, theme_col_back, theme_col_text, 0.3f);
 	blend_color_interpolate_byte(theme_col_tab_divider, theme_col_back, theme_col_text, 0.3f);
 
@@ -1487,6 +1487,7 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 
 	/* draw the background */
 	glColor3ubv(theme_col_tab_bg);
+	//glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	glRecti(v2d->mask.xmin, v2d->mask.ymin, v2d->mask.xmin + category_tabs_width, v2d->mask.ymax);
 
 	for (pc_dyn = ar->panels_category.first; pc_dyn; pc_dyn = pc_dyn->next) {
@@ -1550,11 +1551,11 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 			BLF_shadow_offset(fontid, -1, -1);
 		}
 		else {
-			glColor3ubv(theme_col_text_hi);
+			glColor3ubv(theme_col_text);
 			/* draw black shadow to give text more depth */
 			BLF_enable(fontid, BLF_SHADOW);
-			BLF_shadow(fontid, 3, 0.0f, 0.0f, 0.0f, 0.2f);
-			BLF_shadow_offset(fontid, 1, 1);
+			BLF_shadow(fontid, 3, 1.0f, 1.0f, 1.0f, 0.15f);
+			BLF_shadow_offset(fontid, -1, -1);
 		}
 
 		BLF_draw(fontid, category_id_draw, category_draw_len);
