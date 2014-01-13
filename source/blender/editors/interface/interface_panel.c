@@ -1552,7 +1552,7 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 		}
 		else {
 			glColor3ubv(theme_col_text);
-			/* draw black shadow to give text more depth */
+			/* draw white shadow to give text more depth */
 			BLF_enable(fontid, BLF_SHADOW);
 			BLF_shadow(fontid, 3, 1.0f, 1.0f, 1.0f, 0.15f);
 			BLF_shadow_offset(fontid, -1, -1);
