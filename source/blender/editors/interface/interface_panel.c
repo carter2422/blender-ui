@@ -1448,7 +1448,7 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 	BLF_rotation(fontid, M_PI / 2);
 	//uiStyleFontSet(&style->widget);
 	ui_fontscale(&fstyle_points, aspect);
-	BLF_size(fontid, (fstyle_points * U.pixelsize), U.dpi);
+	BLF_size(fontid, (fstyle_points * U.pixelsize * 1.1), U.dpi);
 
 	BLI_assert(UI_panel_category_is_visible(ar));
 
