@@ -746,6 +746,8 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 		glEnableClientState(GL_VERTEX_ARRAY);
 
 		for (j = 0; j < WIDGET_AA_JITTER; j++) {
+			unsigned char emboss[4];
+
 			glTranslatef(jit[j][0], jit[j][1], 0.0f);
 			
 			/* outline */
@@ -753,10 +755,8 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 
 			glVertexPointer(2, GL_FLOAT, 0, quad_strip);
 			glDrawArrays(GL_QUAD_STRIP, 0, wtb->totvert * 2 + 2);
-		
-			/* emboss bottom shadow */
-			unsigned char emboss[4];
 
+			/* emboss bottom shadow */
 			UI_GetThemeColor4ubv(TH_EMBOSS, emboss);
 
 			if (wtb->emboss) {
