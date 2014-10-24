@@ -2496,7 +2496,7 @@ void init_userdef_do_versions(void)
 		}
 	}
 
-	if (U.versionfile < 272 || (U.versionfile == 272 && U.subversionfile < 1)) {
+	if (U.versionfile < 272 || (U.versionfile == 272 && U.subversionfile < 2)) {
 		bTheme *btheme;
 		
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
