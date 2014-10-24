@@ -757,16 +757,15 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 			glDrawArrays(GL_QUAD_STRIP, 0, wtb->totvert * 2 + 2);
 
 			/* emboss bottom shadow */
+			UI_GetThemeColor4ubv(TH_EMBOSS, emboss);
+
 			if (wtb->emboss) {
-			    UI_GetThemeColor4ubv(TH_EMBOSS, emboss);
-			    if (emboss[3]) {
-		    		glColor4ubv(emboss);
+				glColor4ubv(emboss);
 
-					glVertexPointer(2, GL_FLOAT, 0, quad_strip_emboss);
-					glDrawArrays(GL_QUAD_STRIP, 0, wtb->halfwayvert * 2);
-				}
+				glVertexPointer(2, GL_FLOAT, 0, quad_strip_emboss);
+				glDrawArrays(GL_QUAD_STRIP, 0, wtb->halfwayvert * 2);
 			}
-
+			
 			glTranslatef(-jit[j][0], -jit[j][1], 0.0f);
 		}
 
